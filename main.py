@@ -1,16 +1,27 @@
+from ipywidgets import FileUpload, Button, Output, Dropdown
 import whisper
 import os
 
-try:
-    audio_files = ["/content/drive/MyDrive/Colab Notebooks/project/nothing.wav"]  # Updated path
-    model = whisper.load_model("medium")
+out = Output()
+model = whisper.load_model("medium")
 
-    for file in audio_files:
-        if os.path.exists(file):
-            result = model.transcribe(file, language='ta')
-            print(f"Transcribed Text for {file}:\n")
+def on_button_clicked(b):
+    with out:
+        out.clear_output()
+        for uploaded_file in upload.value:
+            file_name = uploaded_file['name']
+            with open(file_name, 'wb') as f:
+                f.write(uploaded_file['content'])
+            result = model.transcribe(file_name, language=language_dropdown.value)
+            print(f"Transcribed Text for {file_name}:\n")
             print(result["text"])
-        else:
-            print(f"File not found: {file}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+
+upload = FileUpload(accept='.wav', multiple=True)
+language_dropdown = Dropdown(options={'Tamil': 'ta', 'English': 'en', 'Hindi': 'hi'}, value='ta', description='Language:')
+button = Button(description="Transcribe")
+button.on_click(on_button_clicked)
+
+display(upload)
+display(language_dropdown)
+display(button)
+display(out)
