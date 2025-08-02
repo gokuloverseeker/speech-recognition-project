@@ -1,27 +1,47 @@
-from ipywidgets import FileUpload, Button, Output, Dropdown
 import whisper
-import os
+import pandas as pd
+from google.colab import files
+from datetime import timedelta
+import textwrap
 
-out = Output()
-model = whisper.load_model("medium")
+# 📁 Upload audio files
+uploaded = files.upload()
 
-def on_button_clicked(b):
-    with out:
-        out.clear_output()
-        for uploaded_file in upload.value:
-            file_name = uploaded_file['name']
-            with open(file_name, 'wb') as f:
-                f.write(uploaded_file['content'])
-            result = model.transcribe(file_name, language=language_dropdown.value)
-            print(f"Transcribed Text for {file_name}:\n")
-            print(result["text"])
+# 🌐 Ask user for language code
+print("\n🌐 Choose language for transcription (e.g., 'en' for English, 'ta' for Tamil, 'hi' for Hindi):")
+chosen_lang = input("Enter language code: ").strip()
 
-upload = FileUpload(accept='.wav', multiple=True)
-language_dropdown = Dropdown(options={'Tamil': 'ta', 'English': 'en', 'Hindi': 'hi'}, value='ta', description='Language:')
-button = Button(description="Transcribe")
-button.on_click(on_button_clicked)
+# 🧠 Load Whisper model
+model = whisper.load_model("medium")  # You can also use "small" or "large"
 
-display(upload)
-display(language_dropdown)
-display(button)
-display(out)
+def format_timestamp(seconds):
+    return str(timedelta(seconds=int(seconds)))
+
+# 📜 Transcribe each file
+for filename in uploaded.keys():
+    print(f"\n🎧 Processing: {filename}")
+    result = model.transcribe(filename, language=chosen_lang)
+
+    print(f"🌐 Detected language: {result['language']}")
+    print("📝 Transcript:")
+    wrapped_text = textwrap.fill(result["text"], width=80)  # Wrap at 80 characters
+    print(wrapped_text)
+
+    # Save timestamped segments
+    segments = result.get("segments", [])
+    rows = [{
+        "start": format_timestamp(seg["start"]),
+        "end": format_timestamp(seg["end"]),
+        "text": seg["text"]
+    } for seg in segments]
+
+    df = pd.DataFrame(rows)
+    txt_file = filename + "_transcript.txt"
+    csv_file = filename + "_segments.csv"
+
+    with open(txt_file, "w") as f:
+        f.write(result["text"])
+    df.to_csv(csv_file, index=False)
+
+    files.download(txt_file)
+    files.download(csv_file)
